@@ -14,9 +14,7 @@ use App\Services\StatusTransitionService;
 class InventoryItemController extends Controller
 {
 
-    public function __construct(
-        private StatusTransitionService $statusService
-    ) {}
+
 
     public function getAllInventoryItems(Request $request)
     {
@@ -311,7 +309,6 @@ class InventoryItemController extends Controller
     {
         try {
             $id = $request->id;
-
             $item = InventoryItem::find($id);
 
             if (!$item) {
@@ -323,12 +320,29 @@ class InventoryItemController extends Controller
 
             $request->validate([
                 'status' => 'required|in:in_store,borrowed,damaged,missing',
-            ], [
-                'status.required' => 'The status is required.',
-                'status.in' => 'The status must be in_store, borrowed, damaged, or missing.',
             ]);
 
-            $this->statusService->transition($item, $request->status);
+            $allowedTransitions = [
+                'in_store' => ['borrowed', 'damaged', 'missing'],
+                'borrowed' => ['in_store', 'damaged', 'missing'],
+                'damaged'  => ['in_store', 'missing'],
+                'missing'  => ['in_store'],
+            ];
+
+            $currentStatus = $item->status;
+            $newStatus = $request->status;
+
+            if (!in_array($newStatus, $allowedTransitions[$currentStatus])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Cannot transition from '{$currentStatus}' to '{$newStatus}'. Allowed: " . implode(', ', $allowedTransitions[$currentStatus])
+                ], 422);
+            }
+
+            $oldValue = ['status' => $currentStatus];
+            $item->update(['status' => $newStatus]);
+
+            ActivityLog::log('status_changed', $item, $oldValue, ['status' => $newStatus]);
 
             return response()->json([
                 'success' => true,
@@ -337,7 +351,6 @@ class InventoryItemController extends Controller
             ], 200);
         } catch (\Throwable $th) {
             Log::error('Changing status failed: ' . $th->getMessage());
-
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to change status, please try again later.'
