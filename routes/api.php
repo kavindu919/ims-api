@@ -7,4 +7,7 @@ Route::get('/test', function () {
     return response()->json(['status' => 'ok']);
 });
 
-Route::post('/login', [UserController::class, 'login'])->name('user-login');
+Route::middleware('auth:sanctum')->prefix('auth')->group(function () {
+    Route::post('/logout', [UserController::class, 'logout'])->name('user-logout');
+    Route::get('/me', [UserController::class, 'me'])->name('user-me');
+});
