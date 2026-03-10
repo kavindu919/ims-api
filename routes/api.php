@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BorrowController;
 use App\Http\Controllers\CupboardController;
@@ -48,4 +49,6 @@ Route::middleware('auth:sanctum')->prefix('auth')->group(function () {
     Route::post('/borrow-records', [BorrowController::class, 'createBorrowRecord'])->name('borrow-records.create');
     Route::post('/borrow-record/get', [BorrowController::class, 'getBorrowRecord'])->name('borrow-record.get');
     Route::post('/borrow-record/return', [BorrowController::class, 'returnBorrowedItem'])->name('borrow-record.return');
+
+    Route::get('/activity-logs', [ActivityLogController::class, 'getAllActivityLogs'])->name('activity-logs.getall');
 });
