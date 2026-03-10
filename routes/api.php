@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CupboardController;
+use App\Http\Controllers\StoragePlaceController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -25,4 +26,10 @@ Route::middleware('auth:sanctum')->prefix('auth')->group(function () {
     Route::post('/cupboard/get', [CupboardController::class, 'getCupboardWithPlaces'])->name('cupboard.get');
     Route::post('/cupboard/update', [CupboardController::class, 'updateCupboard'])->name('cupboard.update');
     Route::post('/cupboard/delete', [CupboardController::class, 'deleteCupboard'])->name('cupboard.delete');
+
+    Route::get('/storage-places', [StoragePlaceController::class, 'getAllStoragePlaces'])->name('storage-places.getall');
+    Route::post('/storage-places', [StoragePlaceController::class, 'createStoragePlace'])->name('storage-places.create');
+    Route::post('/storage-place/get', [StoragePlaceController::class, 'getStoragePlace'])->name('storage-place.get');
+    Route::post('/storage-place/update', [StoragePlaceController::class, 'updateStoragePlace'])->name('storage-place.update');
+    Route::post('/storage-place/delete', [StoragePlaceController::class, 'deleteStoragePlace'])->name('storage-place.delete');
 });
