@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BorrowController;
 use App\Http\Controllers\CupboardController;
 use App\Http\Controllers\InventoryItemController;
 use App\Http\Controllers\StoragePlaceController;
@@ -42,4 +43,9 @@ Route::middleware('auth:sanctum')->prefix('auth')->group(function () {
     Route::post('/inventory-item/delete', [InventoryItemController::class, 'deleteInventoryItem'])->name('inventory-item.delete');
     Route::post('/inventory-item/adjust-quantity', [InventoryItemController::class, 'adjustItemQuantity'])->name('inventory-item.adjust-quantity');
     Route::post('/inventory-item/change-status', [InventoryItemController::class, 'changeItemStatus'])->name('inventory-item.change-status');
+
+    Route::get('/borrow-records', [BorrowController::class, 'getAllBorrowRecords'])->name('borrow-records.getall');
+    Route::post('/borrow-records', [BorrowController::class, 'createBorrowRecord'])->name('borrow-records.create');
+    Route::post('/borrow-record/get', [BorrowController::class, 'getBorrowRecord'])->name('borrow-record.get');
+    Route::post('/borrow-record/return', [BorrowController::class, 'returnBorrowedItem'])->name('borrow-record.return');
 });
