@@ -8,17 +8,37 @@ use Illuminate\Support\Facades\Log;
 
 class CupboardController extends Controller
 {
-    public function getAllCupboards()
+    public function getAllCupboards(Request $request)
     {
         try {
+            $request->validate([
+                'search'    => 'nullable|string|max:255',
+                'sortBy'    => 'nullable|in:name,location,created_at',
+                'sortOrder' => 'nullable|in:asc,desc',
+                'page'      => 'nullable|integer|min:1',
+                'limit'     => 'nullable|integer|min:1|max:100',
+            ]);
+
+            $search    = $request->search ?? '';
+            $sortBy    = $request->sortBy ?? 'name';
+            $sortOrder = $request->sortOrder ?? 'asc';
+            $page      = $request->page ?? 1;
+            $limit     = $request->limit ?? 20;
+
             $cupboards = Cupboard::withCount('storagePlaces')
-                ->orderBy('name')
-                ->get();
+                ->where('name', 'ilike', "%{$search}%")
+                ->orderBy($sortBy, $sortOrder)
+                ->paginate($limit, ['*'], 'page', $page);
 
             return response()->json([
                 'success'   => true,
                 'message'   => 'Cupboards retrieved successfully.',
-                'cupboards' => $cupboards,
+                'cupboards' => $cupboards->items(),
+                'meta'      => [
+                    'total' => $cupboards->total(),
+                    'page'  => $cupboards->currentPage(),
+                    'limit' => $cupboards->perPage(),
+                ],
             ], 200);
         } catch (\Throwable $th) {
             Log::error('Fetching cupboards failed: ' . $th->getMessage());
