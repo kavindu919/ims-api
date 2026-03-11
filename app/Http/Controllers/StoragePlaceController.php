@@ -11,24 +11,44 @@ class StoragePlaceController extends Controller
     public function getAllStoragePlaces(Request $request)
     {
         try {
-            $query = StoragePlace::with('cupboard:id,name')->withCount('items');
+            $request->validate([
+                'search'     => 'nullable|string|max:255',
+                'cupboard_id' => 'nullable|integer|exists:cupboards,id',
+                'sortBy'     => 'nullable|in:name,created_at',
+                'sortOrder'  => 'nullable|in:asc,desc',
+                'page'       => 'nullable|integer|min:1',
+                'limit'      => 'nullable|integer|min:1|max:100',
+            ]);
 
-            if ($request->has('cupboard_id')) {
-                $query->where('cupboard_id', $request->cupboard_id);
-            }
+            $search     = $request->search ?? '';
+            $sortBy     = $request->sortBy ?? 'name';
+            $sortOrder  = $request->sortOrder ?? 'asc';
+            $page       = $request->page ?? 1;
+            $limit      = $request->limit ?? 20;
 
-            $storagePlaces = $query->orderBy('name')->get();
+            $places = StoragePlace::with(['cupboard:id,name'])
+                ->withCount('items')
+                ->select('id', 'cupboard_id', 'name', 'description', 'created_at')
+                ->where('name', 'ilike', "%{$search}%")
+                ->when($request->cupboard_id, fn($q) => $q->where('cupboard_id', $request->cupboard_id))
+                ->orderBy($sortBy, $sortOrder)
+                ->paginate($limit, ['*'], 'page', $page);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Storage places retrieved successfully.',
-                'storage_places' => $storagePlaces,
+                'places'  => $places->items(),
+                'meta'    => [
+                    'total' => $places->total(),
+                    'page'  => $places->currentPage(),
+                    'limit' => $places->perPage(),
+                ],
             ], 200);
         } catch (\Throwable $th) {
             Log::error('Fetching storage places failed: ' . $th->getMessage());
-
             return response()->json([
                 'success' => false,
+                'error' => $th->getMessage(),
                 'message' => 'Failed to fetch storage places, please try again later.'
             ], 500);
         }
