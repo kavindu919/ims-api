@@ -11,21 +11,49 @@ use Illuminate\Support\Facades\Log;
 class UserController extends Controller
 {
 
-    public function getAllUsers()
+    public function getAllUsers(Request $request)
     {
         try {
+            $request->validate([
+                'search'    => 'nullable|string|max:255',
+                'role'      => 'nullable|in:admin,staff',
+                'is_active' => 'nullable|in:true,false,0,1',
+                'sortBy'    => 'nullable|in:name,email,role,created_at',
+                'sortOrder' => 'nullable|in:asc,desc',
+                'page'      => 'nullable|integer|min:1',
+                'limit'     => 'nullable|integer|min:1|max:100',
+            ]);
+
+            $search    = $request->search ?? '';
+            $sortBy    = $request->sortBy ?? 'created_at';
+            $sortOrder = $request->sortOrder ?? 'desc';
+            $page      = $request->page ?? 1;
+            $limit     = $request->limit ?? 20;
+
             $users = User::with('createdBy:id,name')
-                ->orderBy('created_at', 'desc')
-                ->get();
+                ->select('id', 'name', 'email', 'role', 'is_active', 'created_by', 'created_at')
+                ->where('name', 'ilike', "%{$search}%")
+                ->when($request->role, fn($q) => $q->where('role', $request->role))
+                ->when($request->filled('is_active'), fn($q) => $q->where('is_active', filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN)))
+                ->orderBy($sortBy, $sortOrder)
+                ->paginate($limit, ['*'], 'page', $page);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Users retrieved successfully.',
-                'users'   => $users,
+                'users'   => $users->items(),
+                'meta'    => [
+                    'total' => $users->total(),
+                    'page'  => $users->currentPage(),
+                    'limit' => $users->perPage(),
+                ],
             ], 200);
         } catch (\Throwable $th) {
-            Log::error('User creation failed: ' . $th->getMessage());
+            Log::error('Fetching users failed: ' . $th->getMessage());
             return response()->json([
-                'message' => 'Failed to create user, please try again later.'
+                'success' => false,
+                'error' => $th->getMessage(),
+                'message' => 'Failed to fetch users, please try again later.'
             ], 500);
         }
     }
@@ -114,7 +142,7 @@ class UserController extends Controller
             'email'     => 'sometimes|email|unique:users,email,' . $request->id,
             'role'      => 'sometimes|in:admin,staff',
             'is_active' => 'sometimes|boolean',
-            'password'  => 'sometimes|string|min:8',
+            'password'  => 'nullable|string|min:8',
         ], [
             'id.required'    => 'User ID is required.',
             'id.exists'      => 'User not found.',
@@ -142,6 +170,7 @@ class UserController extends Controller
             ActivityLog::log('user_updated', $user, $oldValues, $newValues);
 
             return response()->json([
+                'success' => true,
                 'message' => 'User updated successfully.',
                 'user'    => $user->fresh(),
             ], 200);
