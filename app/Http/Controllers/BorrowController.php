@@ -14,23 +14,40 @@ class BorrowController extends Controller
     public function getAllBorrowRecords(Request $request)
     {
         try {
-            $query = BorrowRecord::with(['item:id,name,code', 'createdBy:id,name'])
-                ->orderBy('created_at', 'desc');
+            $request->validate([
+                'search'    => 'nullable|string|max:255',
+                'status'    => 'nullable|in:borrowed,returned',
+                'sortBy'    => 'nullable|in:borrower_name,borrow_date,expected_return_date,created_at',
+                'sortOrder' => 'nullable|in:asc,desc',
+                'page'      => 'nullable|integer|min:1',
+                'limit'     => 'nullable|integer|min:1|max:100',
+            ]);
 
-            if ($request->status) {
-                $query->where('status', $request->status);
-            }
+            $search    = $request->search ?? '';
+            $sortBy    = $request->sortBy ?? 'created_at';
+            $sortOrder = $request->sortOrder ?? 'desc';
+            $page      = $request->page ?? 1;
+            $limit     = $request->limit ?? 20;
 
-            $records = $query->paginate(20);
+            $records = BorrowRecord::with(['item:id,name,code', 'createdBy:id,name'])
+                ->select('id', 'item_id', 'borrower_name', 'contact', 'borrow_date', 'expected_return_date', 'return_date', 'quantity_borrowed', 'status', 'notes', 'created_by', 'created_at')
+                ->where('borrower_name', 'ilike', "%{$search}%")
+                ->when($request->status, fn($q) => $q->where('status', $request->status))
+                ->orderBy($sortBy, $sortOrder)
+                ->paginate($limit, ['*'], 'page', $page);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Borrow records retrieved successfully.',
-                'records' => $records,
+                'records' => $records->items(),
+                'meta'    => [
+                    'total' => $records->total(),
+                    'page'  => $records->currentPage(),
+                    'limit' => $records->perPage(),
+                ],
             ], 200);
         } catch (\Throwable $th) {
             Log::error('Fetching borrow records failed: ' . $th->getMessage());
-
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch borrow records, please try again later.'
@@ -102,7 +119,6 @@ class BorrowController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Borrow record created successfully.',
-                'borrow' => $borrow->load(['item:id,name,code', 'createdBy:id,name']),
             ], 201);
         } catch (\Exception $e) {
             Log::error('Creating borrow record failed: ' . $e->getMessage());
@@ -198,7 +214,6 @@ class BorrowController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Item returned successfully.',
-                'borrow'  => $borrowRecord->fresh()->load(['item:id,name,code', 'createdBy:id,name']),
             ], 200);
         } catch (\Throwable $th) {
             Log::error('Returning item failed: ' . $th->getMessage());

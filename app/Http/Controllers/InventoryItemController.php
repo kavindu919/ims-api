@@ -56,8 +56,6 @@ class InventoryItemController extends Controller
                     'limit' => $items->perPage(),
                 ],
             ], 200);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json(['success' => false, 'message' => $e->errors()], 422);
         } catch (\Throwable $th) {
             Log::error('Fetching inventory items failed: ' . $th->getMessage());
             return response()->json([
