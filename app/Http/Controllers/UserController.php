@@ -35,7 +35,7 @@ class UserController extends Controller
         $request->validate([
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|unique:users,email',
-            'password' => 'required|string|min:8',
+            'password' => 'required|string|min:8|max:100',
             'role'     => 'required|in:admin,staff',
         ], [
             'name.required'     => 'Please enter your name.',
@@ -47,6 +47,7 @@ class UserController extends Controller
             'password.required' => 'Please set a password.',
             'password.string'   => 'The password must be text.',
             'password.min'      => 'Password must be at least 8 characters.',
+            'password.max'      => "Password must be lower than 100 characters.",
             'role.required'     => 'Please select a role.',
             'role.in'           => 'Role must be either admin or staff.',
         ]);
