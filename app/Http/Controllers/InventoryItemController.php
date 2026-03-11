@@ -19,29 +19,47 @@ class InventoryItemController extends Controller
     public function getAllInventoryItems(Request $request)
     {
         try {
-            $query = InventoryItem::with('storagePlace.cupboard');
+            $request->validate([
+                'search'           => 'nullable|string|max:255',
+                'status'           => 'nullable|in:in_store,borrowed,damaged,missing',
+                'storage_place_id' => 'nullable|integer|exists:storage_places,id',
+                'sortBy'           => 'nullable|in:name,code,quantity,created_at',
+                'sortOrder'        => 'nullable|in:asc,desc',
+                'page'             => 'nullable|integer|min:1',
+                'limit'            => 'nullable|integer|min:1|max:100',
+            ]);
 
-            if ($request->search) {
-                $query->where(function ($q) use ($request) {
-                    $q->where('name', 'ilike', "%{$request->search}%")
-                        ->orWhere('code', 'ilike', "%{$request->search}%");
-                });
-            }
+            $search          = $request->search ?? '';
+            $sortBy          = $request->sortBy ?? 'name';
+            $sortOrder       = $request->sortOrder ?? 'asc';
+            $page            = $request->page ?? 1;
+            $limit           = $request->limit ?? 20;
 
-            if ($request->status) {
-                $query->where('status', $request->status);
-            }
-
-            $items = $query->orderBy('name')->paginate(20);
+            $items = InventoryItem::with(['storagePlace:id,name,cupboard_id', 'storagePlace.cupboard:id,name'])
+                ->select('id', 'name', 'code', 'quantity', 'serial_number', 'image_path', 'description', 'storage_place_id', 'status', 'created_at')
+                ->where(function ($q) use ($search) {
+                    $q->where('name', 'ilike', "%{$search}%")
+                        ->orWhere('code', 'ilike', "%{$search}%");
+                })
+                ->when($request->status, fn($q) => $q->where('status', $request->status))
+                ->when($request->storage_place_id, fn($q) => $q->where('storage_place_id', $request->storage_place_id))
+                ->orderBy($sortBy, $sortOrder)
+                ->paginate($limit, ['*'], 'page', $page);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Inventory items retrieved successfully.',
-                'items' => $items,
+                'items'   => $items->items(),
+                'meta'    => [
+                    'total' => $items->total(),
+                    'page'  => $items->currentPage(),
+                    'limit' => $items->perPage(),
+                ],
             ], 200);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json(['success' => false, 'message' => $e->errors()], 422);
         } catch (\Throwable $th) {
             Log::error('Fetching inventory items failed: ' . $th->getMessage());
-
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch inventory items, please try again later.'
@@ -90,7 +108,6 @@ class InventoryItemController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Inventory item created successfully.',
-                'item' => $item->load('storagePlace.cupboard'),
             ], 201);
         } catch (\Throwable $th) {
             Log::error('Creating inventory item failed: ' . $th->getMessage());
@@ -184,7 +201,6 @@ class InventoryItemController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Inventory item updated successfully.',
-                'item' => $item->fresh()->load('storagePlace.cupboard'),
             ], 200);
         } catch (\Throwable $th) {
             Log::error('Updating inventory item failed: ' . $th->getMessage());
@@ -293,7 +309,6 @@ class InventoryItemController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Quantity updated successfully.',
-                'item' => $item->fresh(),
             ], 200);
         } catch (\Exception $e) {
             Log::error('Adjusting quantity failed: ' . $e->getMessage());
@@ -347,7 +362,6 @@ class InventoryItemController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Status updated successfully.',
-                'item' => $item->fresh(),
             ], 200);
         } catch (\Throwable $th) {
             Log::error('Changing status failed: ' . $th->getMessage());
