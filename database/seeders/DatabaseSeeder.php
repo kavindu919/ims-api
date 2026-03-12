@@ -2,24 +2,53 @@
 
 namespace Database\Seeders;
 
+use App\Models\Cupboard;
+use App\Models\InventoryItem;
+use App\Models\StoragePlace;
 use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $admin = User::create([
+            'name'       => 'System Admin',
+            'email'      => 'admin@ceyntics.com',
+            'password'   => Hash::make('password123'),
+            'role'       => 'admin',
+            'is_active'  => true,
+            'created_by' => null,
+        ]);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        User::create([
+            'name'       => 'Staff User',
+            'email'      => 'staff@ceyntics.com',
+            'password'   => Hash::make('password123'),
+            'role'       => 'staff',
+            'is_active'  => true,
+            'created_by' => $admin->id,
+        ]);
+
+        $cupboard = Cupboard::create([
+            'name'     => 'Cabinet A',
+            'location' => 'Server Room',
+        ]);
+
+        $place = StoragePlace::create([
+            'cupboard_id' => $cupboard->id,
+            'name'        => 'Shelf 1',
+            'description' => 'Top shelf',
+        ]);
+
+        InventoryItem::create([
+            'name'             => 'Network Switch',
+            'code'             => 'NET-SW-001',
+            'quantity'         => 3,
+            'description'      => 'Cisco 24-port switch',
+            'storage_place_id' => $place->id,
+            'status'           => 'in_store',
         ]);
     }
 }
